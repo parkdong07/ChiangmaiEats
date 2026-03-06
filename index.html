@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chiang Mai Eats 🍜</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --cream: #FDF8F0;
+      --ink: #2D1A0E;
+      --gold: #F5A623;
+      --amber: #E8510A;
+      --moss: #6B8F3E;
+      --terra: #C1440E;
+      --sand: #EDD9B8;
+      --shadow: rgba(45, 26, 14, .15);
+      --d1: #22C55E;
+      --d2: #F59E0B;
+      --d3: #EF4444;
+      --d4: #94A3B8;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      position: relative;
+      z-index: 1000;
+      background: var(--ink);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, .3);
+    }
+
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 19px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: -.5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .logo span {
+      color: var(--cream);
+      font-weight: 300;
+      font-style: italic;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spot-count {
+      background: var(--amber);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 20px;
+    }
+
+    #gps-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background .2s;
+      border: 1.5px solid;
+    }
+
+    #gps-pill.ok {
+      background: #edfcf2;
+      border-color: var(--d1);
+      color: var(--moss);
+    }
+
+    #gps-pill.wait {
+      background: #fff8ee;
+      border-color: var(--gold);
+      color: #92610a;
+    }
+
+    #gps-pill.err {
+      background: #fff0f0;
+      border-color: var(--d3);
+      color: #b91c1c;
+    }
+
+    .gps-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    #gps-pill.ok .gps-dot {
+      background: var(--d1);
+      animation: blink 2s ease infinite;
+    }
+
+    #gps-pill.wait .gps-dot {
+      background: var(--gold);
+    }
+
+    #gps-pill.err .gps-dot {
+      background: var(--d3);
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .3;
+      }
+    }
+
+    #cat-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      background: var(--cream);
+      border-bottom: 1px solid var(--sand);
+      flex-shrink: 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    #cat-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-pill {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid var(--sand);
+      background: #fff;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all .18s;
+      flex-shrink: 0;
+    }
+
+    .cat-pill span {
+      font-size: 13px;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+      position: relative;
+      cursor: crosshair;
+    }
+
+    .leaflet-container {
+      background: #e8dfc8;
+    }
+
+    .leaflet-control-zoom {
+      display: none;
+    }
+
+    #fabs {
+      position: absolute;
+      bottom: 84px;
+      right: 14px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .fab {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .2s;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+    }
+
+    .fab:active {
+      transform: scale(.9);
+    }
+
+    #fab-add {
+      background: var(--amber);
+      box-shadow: 0 4px 20px rgba(232, 81, 10, .5);
+      font-size: 26px;
+    }
+
+    #fab-add.active {
+      background: var(--terra);
+      transform: rotate(45deg);
+    }
+
+    #fab-random {
+      background: var(--ink);
+      font-size: 20px;
+    }
+
+    #dist-legend {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      z-index: 800;
+      background: rgba(253, 248, 240, .93);
+      backdrop-filter: blur(6px);
+      border-radius: 12px;
+      padding: 8px 11px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
+      font-size: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .dl-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .dl-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    #sheet {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 950;
+      background: var(--cream);
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -6px 40px rgba(0, 0, 0, .18);
+      transform: translateY(100%);
+      transition: transform .38s cubic-bezier(.32, .72, 0, 1);
+      max-height: 90dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #sheet.open {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--sand);
+      border-radius: 2px;
+      margin: 11px auto 0;
+    }
+
+    .sheet-inner {
+      padding: 13px 17px 36px;
+    }
+
+    .sheet-title {
+      font-family: 'Fraunces', serif;
+      font-size: 21px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .sheet-sub {
+      font-size: 12px;
+      color: #7a6a50;
+      margin-bottom: 14px;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+    }
+
+    .step-dots {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    .step-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--sand);
+      transition: width .2s, background .2s;
+    }
+
+    .step-dot.active {
+      width: 20px;
+      border-radius: 3px;
+      background: var(--amber);
+    }
+
+    .upload-zone {
+      border: 2.5px dashed var(--sand);
+      border-radius: 14px;
+      padding: 22px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--amber);
+      background: rgba(232, 81, 10, .04);
+    }
+
+    .upload-zone input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      font-size: 34px;
+      margin-bottom: 7px;
+      display: block;
+    }
+
+    .upload-zone h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .upload-zone p {
+      font-size: 11px;
+      color: #7a6a50;
+    }
+
+    .gps-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 13px;
+      border-radius: 10px;
+      margin: 9px 0 0;
+      width: 100%;
+      justify-content: center;
+      border: 1.5px solid;
+    }
+
+    .gps-badge.show {
+      display: flex;
+    }
+
+    .or-div {
+      text-align: center;
+      color: #b0a080;
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin: 11px 0;
+      position: relative;
+    }
+
+    .or-div::before,
+    .or-div::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: var(--sand);
+    }
+
+    .or-div::before {
+      left: 0;
+    }
+
+    .or-div::after {
+      right: 0;
+    }
+
+    .tap-hint {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: #fff8ee;
+      border: 1.5px solid var(--sand);
+      border-radius: 11px;
+      padding: 9px 12px;
+      font-size: 12px;
+      color: #5a4a2a;
+    }
+
+    .tap-hint .hi {
+      font-size: 19px;
+      flex-shrink: 0;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #9a8a6a;
+      margin-bottom: 7px;
+    }
+
+    .cat-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .cat-chip {
+      padding: 6px 11px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid var(--sand);
+      background: #fff;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .cat-chip.selected {
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+
+    .emoji-btn {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 2.5px solid transparent;
+      background: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+      box-shadow: 0 1px 4px var(--shadow);
+    }
+
+    .emoji-btn:active {
+      transform: scale(.88);
+    }
+
+    .emoji-btn.selected {
+      border-color: var(--amber);
+      background: #fff8ee;
+      box-shadow: 0 2px 10px rgba(232, 81, 10, .25);
+      transform: scale(1.1);
+    }
+
+    .color-grid {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .color-swatch {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 2px 6px var(--shadow);
+    }
+
+    .color-swatch.selected {
+      border-color: var(--ink);
+      transform: scale(1.2);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, .25);
+    }
+
+    .vibe-preview {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: #fff;
+      border: 1.5px solid var(--sand);
+      border-radius: 11px;
+      padding: 7px 12px;
+      min-height: 44px;
+      margin-bottom: 11px;
+      font-size: 22px;
+      letter-spacing: 2px;
+    }
+
+    .color-blob {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 0, 0, .08);
+      display: none;
+      flex-shrink: 0;
+    }
+
+    .color-blob.vis {
+      display: block;
+    }
+
+    .vibe-hint {
+      font-size: 10px;
+      color: #b0a080;
+      margin-left: auto;
+    }
+
+    .gem-input,
+    .gem-textarea {
+      width: 100%;
+      background: #fff;
+      border: 2px solid var(--sand);
+      border-radius: 11px;
+      padding: 10px 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color .2s;
+      margin-bottom: 11px;
+    }
+
+    .gem-input:focus,
+    .gem-textarea:focus {
+      border-color: var(--amber);
+    }
+
+    .gem-textarea {
+      resize: none;
+      height: 70px;
+      line-height: 1.5;
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--ink);
+      color: var(--gold);
+      border: none;
+      border-radius: 13px;
+      padding: 14px;
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .btn-primary:active {
+      transform: scale(.97);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      background: transparent;
+      color: var(--amber);
+      border: 2px solid var(--amber);
+      border-radius: 13px;
+      padding: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 7px;
+    }
+
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 800;
+      pointer-events: none;
+      display: none;
+    }
+
+    #crosshair.visible {
+      display: block;
+    }
+
+    .ch-ring {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 2.5px solid var(--amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 1.4s ease infinite;
+    }
+
+    .ch-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.15);
+        opacity: .7;
+      }
+    }
+
+    #pin-bar {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 900;
+      background: var(--ink);
+      color: var(--cream);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: 30px;
+      display: none;
+      gap: 9px;
+      align-items: center;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+    }
+
+    #pin-bar.visible {
+      display: flex;
+    }
+
+    #pin-bar button {
+      background: var(--amber);
+      border: none;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 11px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    #toast {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%) translateY(14px);
+      z-index: 1100;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 30px;
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #gps-modal {
+      position: absolute;
+      inset: 0;
+      z-index: 1300;
+      background: rgba(45, 26, 14, .8);
+      backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    #gps-modal.open {
+      display: flex;
+    }
+
+    #gps-modal-card {
+      background: var(--cream);
+      border-radius: 20px;
+      padding: 28px 22px;
+      text-align: center;
+      max-width: 320px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .3);
+    }
+
+    .gps-modal-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    #gps-modal-card h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    #gps-modal-card p {
+      font-size: 13px;
+      color: #7a6a50;
+      line-height: 1.55;
+      margin-bottom: 20px;
+    }
+
+    .gps-modal-btn {
+      width: 100%;
+      background: var(--amber);
+      border: none;
+      color: #fff;
+      border-radius: 13px;
+      padding: 14px;
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .gps-modal-skip {
+      width: 100%;
+      background: transparent;
+      color: #9a8a6a;
+      border: 2px solid var(--sand);
+      border-radius: 13px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #rand-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(45, 26, 14, .75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    #rand-overlay.open {
+      display: flex;
+    }
+
+    #rand-card {
+      background: var(--cream);
+      border-radius: 22px 22px 0 0;
+      width: 100%;
+      max-height: 88dvh;
+      overflow-y: auto;
+      padding: 20px 18px 36px;
+      box-shadow: 0 -8px 40px rgba(0, 0, 0, .3);
+    }
+
+    .rand-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--sand);
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+
+    #rand-card h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 3px;
+    }
+
+    #rand-card>p {
+      font-size: 12px;
+      color: #7a6a50;
+      margin-bottom: 16px;
+    }
+
+    .rand-section {
+      margin-bottom: 14px;
+    }
+
+    .rand-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .rand-pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1.5px solid var(--sand);
+      background: #fff;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .rand-pill.on-cat {
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .rand-pill.on-dist {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--gold);
+    }
+
+    .dist-pill {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 2px solid var(--sand);
+      background: #fff;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .dist-pill.active {
+      color: #fff;
+    }
+
+    #spin-btn {
+      width: 100%;
+      background: var(--amber);
+      border: none;
+      color: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      font-family: 'Fraunces', serif;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    #spin-btn:active {
+      transform: scale(.97);
+    }
+
+    #rand-result {
+      display: none;
+      background: var(--ink);
+      border-radius: 16px;
+      padding: 16px;
+      color: var(--cream);
+      margin-bottom: 12px;
+    }
+
+    #rand-result.show {
+      display: block;
+    }
+
+    .res-vibes {
+      font-size: 26px;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+
+    .res-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .res-cat,
+    .res-dist {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .res-level {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, .12);
+      border-radius: 20px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .res-name {
+      font-family: 'Fraunces', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+
+    .res-meta {
+      font-size: 11px;
+      color: #9a8a6a;
+      margin-bottom: 8px;
+    }
+
+    .res-go-btn {
+      width: 100%;
+      background: var(--gold);
+      border: none;
+      color: var(--ink);
+      border-radius: 11px;
+      padding: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .res-gmap-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 11px 12px;
+      background: #4285F4;
+      color: #fff;
+      border-radius: 11px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    #rand-empty {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #9a8a6a;
+      font-size: 14px;
+    }
+
+    #rand-empty.show {
+      display: block;
+    }
+
+    #rand-no-gps {
+      display: none;
+      background: #fff8ee;
+      border: 1.5px solid var(--gold);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 12px;
+      color: #92610a;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    #rand-no-gps.show {
+      display: block;
+    }
+
+    #close-rand {
+      width: 100%;
+      background: transparent;
+      border: 2px solid var(--sand);
+      border-radius: 13px;
+      padding: 12px;
+      color: #7a6a50;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: var(--ink);
+      color: var(--cream);
+      border-radius: 18px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+    }
+
+    .leaflet-popup-tip {
+      background: var(--ink);
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 255px !important;
+    }
+
+    .popup-top {
+      padding: 12px 14px 9px;
+    }
+
+    .popup-vibes {
+      font-size: 18px;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .popup-cat-badge,
+    .popup-dist-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .popup-dist-badge {
+      margin-left: 5px;
+    }
+
+    .popup-name {
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 3px;
+    }
+
+    .popup-level {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, .1);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .popup-gmap-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 9px;
+      padding: 8px 12px;
+      background: #4285F4;
+      color: #fff;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .popup-comments {
+      background: rgba(0, 0, 0, .22);
+      padding: 8px 13px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .comment-item {
+      border-bottom: 1px solid rgba(255, 255, 255, .07);
+      padding: 5px 0;
+      font-size: 11px;
+      line-height: 1.45;
+      color: rgba(253, 248, 240, .85);
+    }
+
+    .comment-item:last-child {
+      border-bottom: none;
+    }
+
+    .comment-meta {
+      font-size: 9px;
+      color: #9a8a6a;
+      margin-bottom: 2px;
+    }
+
+    .no-comments {
+      font-size: 11px;
+      color: #9a8a6a;
+      padding: 4px 0;
+      font-style: italic;
+    }
+
+    .popup-add {
+      padding: 8px 13px 13px;
+    }
+
+    .popup-ci {
+      width: 100%;
+      background: rgba(255, 255, 255, .08);
+      border: 1.5px solid rgba(255, 255, 255, .15);
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      color: var(--cream);
+      outline: none;
+      resize: none;
+      height: 50px;
+      transition: border-color .2s;
+      line-height: 1.4;
+    }
+
+    .popup-ci:focus {
+      border-color: var(--amber);
+    }
+
+    .popup-ci::placeholder {
+      color: rgba(253, 248, 240, .35);
+    }
+
+    .popup-cb {
+      width: 100%;
+      margin-top: 5px;
+      background: var(--amber);
+      border: none;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 7px 11px;
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .gem-marker {
+      border-radius: 50% 50% 50% 4px;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, .3);
+      border: 2.5px solid rgba(255, 255, 255, .55);
+      cursor: pointer;
+    }
+
+    .gem-marker-inner {
+      transform: rotate(45deg);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">🍜 Chiang Mai<span>Eats</span></div>
+    <div class="header-right">
+      <div id="gps-pill" class="wait" title="แตะเพื่ออัพเดต GPS · Tap to refresh GPS">
+        <div class="gps-dot"></div>
+        <span id="gps-pill-txt">กำลังหาตำแหน่ง…</span>
+      </div>
+      <div class="spot-count" id="spot-count">0 ร้าน</div>
+    </div>
+  </header>
+
+  <div id="cat-bar">
+    <div class="cat-pill" data-cat="all" style="background:#2D1A0E;border-color:#2D1A0E;color:#F5A623;">
+      <span>🗺️</span>ทั้งหมด · All
+    </div>
+  </div>
+
+  <div id="map">
+    <div id="crosshair">
+      <div class="ch-ring">
+        <div class="ch-dot"></div>
+      </div>
+    </div>
+    <div id="pin-bar">
+      📍 วางหมุดตรงนี้? / Pin here?
+      <button id="confirm-pin">วางเลย!</button>
+    </div>
+    <div id="dist-legend">
+      <div class="dl-row">
+        <div class="dl-dot" style="background:var(--d1)"></div>0–100 ม. เดินได้เลย
+      </div>
+      <div class="dl-row">
+        <div class="dl-dot" style="background:var(--d2)"></div>100–250 ม. เดินสบาย
+      </div>
+      <div class="dl-row">
+        <div class="dl-dot" style="background:var(--d3)"></div>250–500 ม. ใกล้แค่นี้
+      </div>
+      <div class="dl-row">
+        <div class="dl-dot" style="background:var(--d4)"></div>500 ม.+ ไกลออกไป
+      </div>
+    </div>
+  </div>
+
+  <div id="fabs">
+    <button class="fab" id="fab-random" title="สุ่มร้าน · Random Spot">🎲</button>
+    <button class="fab" id="fab-add" title="เพิ่มร้าน · Add Spot">+</button>
+  </div>
+  <div id="toast"></div>
+
+  <div id="gps-modal">
+    <div id="gps-modal-card">
+      <div class="gps-modal-icon">📍</div>
+      <h3 id="gps-modal-title">ขอตำแหน่งของคุณ</h3>
+      <p id="gps-modal-msg">แอปนี้ใช้ GPS เพื่อบอกระยะทางถึงแต่ละร้าน <br><em>This app uses your location to show
+          distance.</em></p>
+      <button class="gps-modal-btn" id="gps-retry-btn">📡 เปิด GPS / Enable Location</button>
+      <button class="gps-modal-skip" id="gps-skip-btn">ใช้โดยไม่มีตำแหน่ง · Continue without GPS</button>
+    </div>
+  </div>
+
+  <div id="rand-overlay">
+    <div id="rand-card">
+      <div class="rand-handle"></div>
+      <h2>🎲 สุ่มร้านอาหาร</h2>
+      <div id="rand-no-gps">⚠️ ยังไม่มีตำแหน่ง GPS</div>
+      <div class="rand-section">
+        <div class="section-label">ประเภทอาหาร · Food Type</div>
+        <div class="rand-pills" id="rand-cat-row"></div>
+      </div>
+      <div class="rand-section">
+        <div class="section-label">ระยะทาง · Distance from Me</div>
+        <div class="rand-pills" id="rand-dist-row"></div>
+      </div>
+      <button id="spin-btn">🎲 สุ่มเลย! · Spin!</button>
+      <div id="rand-result">
+        <div class="res-vibes" id="rv"></div>
+        <div class="res-badges">
+          <div class="res-cat" id="rc"></div>
+          <div class="res-dist" id="rd"></div>
+          <div class="res-level" id="rl"></div>
+        </div>
+        <div class="res-name" id="rn"></div>
+        <div class="res-meta" id="rm"></div>
+        <button class="res-go-btn" id="rgo">📍 พาไปบนแผนที่</button>
+        <a class="res-gmap-btn" id="rgmap" href="#" target="_blank">Navigate Google Maps</a>
+      </div>
+      <div id="rand-empty">😅 ไม่พบร้านที่ตรงเงื่อนไข</div>
+      <button id="close-rand" style="margin-top:10px">✕ ปิด</button>
+    </div>
+  </div>
+
+  <div id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-inner">
+      <div class="step-dots">
+        <div class="step-dot active" id="dot-0"></div>
+        <div class="step-dot" id="dot-1"></div>
+        <div class="step-dot" id="dot-2"></div>
+      </div>
+      <div class="step active" id="step-0">
+        <div class="sheet-title">ปักหมุดร้าน 📍</div>
+        <div class="upload-zone">
+          <input type="file" accept="image/*" id="photo-input">
+          <span class="upload-icon">📸</span>
+          <h3>อัพโหลดรูป / Upload photo</h3>
+          <p>ดึง GPS จากรูปอัตโนมัติ</p>
+        </div>
+        <div class="gps-badge" id="form-gps-badge"><span id="form-gps-text">📍</span></div>
+        <div class="or-div">หรือ / OR</div>
+        <div class="tap-hint">เลื่อนแผนที่ไปที่ร้าน แล้วกด "วางเลย!"</div>
+        <br><button class="btn-primary" id="next1">ต่อไป · Next</button>
+      </div>
+      <div class="step" id="step-1">
+        <div class="sheet-title">ประเภท & ความรู้สึก 🎨</div>
+        <div class="cat-chips" id="form-cat-chips"></div>
+        <div class="vibe-preview" id="vp1">
+          <span id="emoji-display">แตะด้านล่าง…</span>
+          <div class="color-blob" id="color-blob"></div>
+        </div>
+        <div class="emoji-grid" id="emoji-grid"></div>
+        <div class="color-grid" id="color-grid"></div>
+        <button class="btn-primary" id="next2">ต่อไป · Next</button>
+        <button class="btn-secondary" id="back0">← กลับ</button>
+      </div>
+      <div class="step" id="step-2">
+        <div class="sheet-title">ชื่อ & คอมเมนต์ ✍️</div>
+        <input class="gem-input" id="gem-name" type="text" placeholder="ชื่อร้าน">
+        <textarea class="gem-textarea" id="gem-comment" placeholder="รีวิวสั้นๆ"></textarea>
+        <button class="btn-primary" id="submit-gem">🍜 เพิ่มลงแผนที่</button>
+        <button class="btn-secondary" id="back1">← กลับ</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Supabase Setup (Injected via GitHub Actions during deploy) ──
+    const projectUrl = 'GITHUB_INJECT_SUPABASE_URL';
+    const anonKey = 'GITHUB_INJECT_SUPABASE_ANON_KEY';
+    const _supabase = supabase.createClient(projectUrl, anonKey);
+
+    // ── Global Config ──
+    const CATS = [
+      { id: 'noodle', emoji: '🍜', th: 'ก๋วยเตี๋ยว/เส้น', en: 'Noodles', col: '#E8510A' },
+      { id: 'rice', emoji: '🍚', th: 'ข้าวจาน', en: 'Rice Dishes', col: '#C8860A' },
+      { id: 'grill', emoji: '🔥', th: 'ย่าง/บาร์บีคิว', en: 'Grill/BBQ', col: '#C1440E' },
+      { id: 'seafood', emoji: '🦐', th: 'ซีฟู้ด', en: 'Seafood', col: '#4A90C4' },
+      { id: 'isaan', emoji: '🌶', th: 'อีสาน/ส้มตำ', en: 'Isaan', col: '#6B8F3E' },
+      { id: 'norththai', emoji: '🫕', th: 'อาหารเหนือ', en: 'Northern TH', col: '#8B4513' },
+      { id: 'hotpot', emoji: '🫧', th: 'ชาบู/หม้อไฟ', en: 'Hotpot', col: '#9B59B6' },
+      { id: 'cafe', emoji: '☕', th: 'คาเฟ่/เบเกอรี่', en: 'Café/Bakery', col: '#E87070' },
+      { id: 'street', emoji: '🛒', th: 'ของกินเล่น/ตลาด', en: 'Street/Market', col: '#F5A623' },
+      { id: 'intl', emoji: '🌍', th: 'อาหารต่างชาติ', en: 'International', col: '#2B6CB0' },
+    ];
+    const DIST_BANDS = [
+      { id: 'd1', max: 100, label: '0–100 ม.', col: '#22C55E', emoji: '🟢' },
+      { id: 'd2', max: 250, label: '100–250 ม.', col: '#F59E0B', emoji: '🟡' },
+      { id: 'd3', max: 500, label: '250–500 ม.', col: '#EF4444', emoji: '🔴' },
+      { id: 'd4', max: Infinity, label: '500 ม.+', col: '#94A3B8', emoji: '⚫' },
+    ];
+    const LEVELS = [
+      { min: 0, max: 0, stars: '☆☆☆☆', th: 'ใหม่', col: '#9a8a6a' },
+      { min: 1, max: 2, stars: '★☆☆☆', th: 'น่าลอง', col: '#6B8F3E' },
+      { min: 3, max: 5, stars: '★★☆☆', th: 'ฮิต', col: '#F5A623' },
+      { min: 6, max: 9, stars: '★★★☆', th: 'ดังมาก', col: '#E8510A' },
+      { min: 10, max: 999, stars: '★★★★', th: 'ตำนาน', col: '#C1440E' },
+    ];
+    const state = {
+      gems: [], userLat: null, userLng: null, gpsStatus: 'wait', filterCat: 'all',
+      pendingLat: null, pendingLng: null, selCat: null, selEmojis: [], selColor: null,
+      randCats: new Set(['all']), randDist: 'all', lastResult: null
+    };
+
+    // ── Functions ──
+    const getBand = m => m === null ? null : DIST_BANDS.find(b => m <= b.max) || DIST_BANDS[3];
+    const getLevel = n => LEVELS.find(l => n >= l.min && n <= l.max) || LEVELS[0];
+    const fmtDist = m => m === null ? '—' : (m < 1000 ? `${Math.round(m)} ม.` : `${(m / 1000).toFixed(1)} กม.`);
+    const haversine = (l1, n1, l2, n2) => {
+      const R = 6371000, dL = (l2 - l1) * Math.PI / 180, dN = (n2 - n1) * Math.PI / 180;
+      const a = Math.sin(dL / 2) ** 2 + Math.cos(l1 * Math.PI / 180) * Math.cos(l2 * Math.PI / 180) * Math.sin(dN / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    let map, gpsWatcher, userMarker, accuracyCircle;
+
+    function initApp() {
+      map = L.map('map', { center: [18.7883, 98.9853], zoom: 13, zoomControl: false, attributionControl: false });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+      startGPS();
+      setupUI();
+      loadGems();
+    }
+
+    async function loadGems() {
+      const { data, error } = await _supabase.from('gems').select('*, comments(*)');
+      if (error) return toast('โหลดข้อมูลไม่สำเร็จ', 'red');
+      state.gems.forEach(g => g.marker?.remove());
+      state.gems = [];
+      data.forEach(row => {
+        const m = row.location.match(/POINT\((.+) (.+)\)/);
+        if (m) {
+          const gem = { ...row, lat: parseFloat(m[2]), lng: parseFloat(m[1]), comments: row.comments || [] };
+          addGemToMap(gem);
+        }
+      });
+      updateCount();
+    }
+
+    function addGemToMap(gem) {
+      state.gems.push(gem);
+      const sz = Math.min(32 + gem.comments.length * 2.2, 54);
+      const icon = makeIcon(gem, sz);
+      gem.marker = L.marker([gem.lat, gem.lng], { icon }).addTo(map);
+      gem.marker.bindPopup(() => buildPopup(gem), { maxWidth: 265 });
+      gem.marker.on('popupopen', () => attachComment(gem));
+      if (state.filterCat !== 'all' && gem.category !== state.filterCat) gem.marker.remove();
+    }
+
+    function makeIcon(gem, s) {
+      const fs = Math.round(s * .44), cat = CATS.find(c => c.id === gem.category);
+      let b = 'rgba(255,255,255,.55)';
+      if (state.userLat) {
+        const d = haversine(state.userLat, state.userLng, gem.lat, gem.lng);
+        b = getBand(d).col;
+      }
+      return L.divIcon({
+        html: `<div class="gem-marker" style="background:${gem.color};width:${s}px;height:${s}px;border-color:${b}">
+            <div class="gem-marker-inner" style="font-size:${fs}px">${gem.vibes?.[0] || cat?.emoji || '🍜'}</div></div>`,
+        className: '', iconSize: [s, s], iconAnchor: [s / 2, s], popupAnchor: [0, -s]
+      });
+    }
+
+    function buildPopup(gem) {
+      const lv = getLevel(gem.comments.length), cat = CATS.find(c => c.id === gem.category);
+      let distHtml = '';
+      if (state.userLat) {
+        const d = haversine(state.userLat, state.userLng, gem.lat, gem.lng), band = getBand(d);
+        distHtml = `<span class="popup-dist-badge" style="background:${band.col}">${fmtDist(d)}</span>`;
+      }
+      const comms = gem.comments.map(c => `<div class="comment-item">${c.text}</div>`).join('');
+      return `<div class="popup-top">
+    <div class="popup-vibes">${gem.vibes}</div>
+    <span class="popup-cat-badge" style="background:${cat.col}">${cat.emoji} ${cat.th}</span>${distHtml}
+    <div class="popup-name">${gem.name}</div>
+    <div class="popup-level" style="color:${lv.col}">${lv.stars} Lv. ${gem.comments.length}</div>
+    <div class="popup-comments">${comms || 'ยังไม่มีความเห็น'}</div>
+    <div class="popup-add">
+      <textarea class="popup-ci" id="pci-${gem.id}" placeholder="เขียนความเห็น..."></textarea>
+      <button class="popup-cb" onclick="submitComment(${gem.id})">ส่ง</button>
+    </div>
+  </div>`;
+    }
+
+    async function submitComment(gemId) {
+      const txt = document.getElementById(`pci-${gemId}`).value.trim();
+      if (!txt) return;
+      const { error } = await _supabase.from('comments').insert({ gem_id: gemId, text: txt });
+      if (error) return toast('ส่งไม่สำเร็จ', 'red');
+      toast('ส่งความเห็นแล้ว!');
+      loadGems();
+    }
+
+    function attachComment(gem) { } // Placeholder for dynamic attach if needed
+
+    function setupUI() {
+      // Category Bar
+      const cb = document.getElementById('cat-bar');
+      CATS.forEach(c => {
+        const p = document.createElement('div');
+        p.className = 'cat-pill'; p.innerHTML = `<span>${c.emoji}</span>${c.th}`;
+        p.onclick = () => {
+          state.filterCat = c.id;
+          document.querySelectorAll('.cat-pill').forEach(x => x.style.background = '');
+          p.style.background = c.col;
+          loadGems();
+        };
+        cb.appendChild(p);
+      });
+
+      // FABs
+      document.getElementById('fab-add').onclick = () => {
+        const c = map.getCenter();
+        state.pendingLat = c.lat; state.pendingLng = c.lng;
+        document.getElementById('sheet').classList.add('open');
+        goStep(0);
+      };
+
+      document.getElementById('next1').onclick = () => goStep(1);
+      document.getElementById('next2').onclick = () => goStep(2);
+      document.getElementById('back0').onclick = () => goStep(0);
+      document.getElementById('back1').onclick = () => goStep(1);
+
+      // Form setup (Category chips, emojis, colors)
+      const fcc = document.getElementById('form-cat-chips');
+      CATS.forEach(c => {
+        const ch = document.createElement('div');
+        ch.className = 'cat-chip'; ch.innerHTML = `${c.emoji} ${c.th}`;
+        ch.onclick = () => {
+          state.selCat = c.id;
+          document.querySelectorAll('.cat-chip').forEach(x => x.classList.remove('selected'));
+          ch.classList.add('selected');
+        };
+        fcc.appendChild(ch);
+      });
+
+      document.getElementById('submit-gem').onclick = async () => {
+        const name = document.getElementById('gem-name').value.trim();
+        if (!name || !state.selCat) return toast('กรุณาใส่ชื่อและเลือกประเภท', 'red');
+        const { data, error } = await _supabase.from('gems').insert({
+          name, vibes: state.selEmojis.join(''), color: state.selColor || '#F5A623',
+          category: state.selCat, location: `POINT(${state.pendingLng} ${state.pendingLat})`
+        }).select().single();
+        if (error) return toast('บันทึกไม่สำเร็จ', 'red');
+        toast('เพิ่มร้านสำเร็จ!');
+        document.getElementById('sheet').classList.remove('open');
+        loadGems();
+      };
+    }
+
+    function goStep(n) {
+      document.querySelectorAll('.step').forEach((s, i) => s.classList.toggle('active', i === n));
+      document.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i === n));
+    }
+
+    function startGPS() {
+      if (!navigator.geolocation) return;
+      gpsWatcher = navigator.geolocation.watchPosition(pos => {
+        state.userLat = pos.coords.latitude; state.userLng = pos.coords.longitude;
+        const p = document.getElementById('gps-pill');
+        p.className = 'ok'; p.querySelector('span').textContent = 'GPS ✓';
+        if (!userMarker) {
+          userMarker = L.marker([state.userLat, state.userLng], {
+            icon: L.divIcon({ html: '<div style="width:12px;height:12px;background:#3B82F6;border:2px solid #fff;border-radius:50%"></div>', className: '' })
+          }).addTo(map);
+        } else userMarker.setLatLng([state.userLat, state.userLng]);
+      }, null, { enableHighAccuracy: true });
+    }
+
+    function toast(m, c = '#6B8F3E') {
+      const t = document.getElementById('toast');
+      t.textContent = m; t.style.background = c; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function updateCount() {
+      document.getElementById('spot-count').textContent = `${state.gems.length} ร้าน`;
+    }
+
+    window.onload = initApp;
+  </script>
+</body>
+
+</html>
